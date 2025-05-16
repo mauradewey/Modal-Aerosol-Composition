@@ -6,8 +6,12 @@
 
 import pandas as pd
 import numpy as np
+import os
 from inv_ccn_utils import make_EXTRA
 from pints.io import save_samples
+
+input_dir = '/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/input_data/'
+output_dir = '/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/chains/'
 
 MCMC_SETTINGS = {
     'max_iterations': 20000,  # Number of MCMC iterations
@@ -36,11 +40,11 @@ def load_data(idx):
     '''
 
     # load data:
-    response = pd.read_csv('../input_data/CCN.csv', header=None, skiprows=idx+1, nrows=1).drop(columns=0).values[0]
-    M_org1_initial = pd.read_csv('../input_data/M_org1_initialguess.csv',header=None, skiprows=idx+1, nrows=1).squeeze()
-    bimodal_params = pd.read_csv('../input_data/bimodal_params_windows.csv',header=None, skiprows=idx+1, nrows=1).drop(columns=0).values[0]
-    median_mass = pd.read_csv('../input_data/mass_from_median_NSDparams.csv', header=None, skiprows=idx+1, nrows=1).drop(columns=1).squeeze()
-    mass_range = pd.read_csv('../input_data/mass_highres_range.csv', header=None, skiprows=10+1, nrows=1).drop(columns=2).values[0]
+    response = pd.read_csv(os.path.join(input_dir, 'CCN.csv'), header=None, skiprows=idx+1, nrows=1).drop(columns=0).values[0]
+    M_org1_initial = pd.read_csv(os.path.join(input_dir, 'M_org1_initialguess.csv'),header=None, skiprows=idx+1, nrows=1).squeeze()
+    bimodal_params = pd.read_csv(os.path.join(input_dir, 'bimodal_params_windows.csv'),header=None, skiprows=idx+1, nrows=1).drop(columns=0).values[0]
+    median_mass = pd.read_csv(os.path.join(input_dir, 'mass_from_median_NSDparams.csv'), header=None, skiprows=idx+1, nrows=1).drop(columns=1).squeeze()
+    mass_range = pd.read_csv(os.path.join(input_dir, 'mass_highres_range.csv'), header=None, skiprows=10+1, nrows=1).drop(columns=2).values[0]
     
     initial_guesses = [M_org1_initial, # fraction of organics in Aitken mode
         bimodal_params[1], # mode1_d median
@@ -75,8 +79,8 @@ def get_Extra(idx):
     '''
 
     # load data for the i-th window:
-    dp_dry = np.loadtxt('../input_data/Dp.txt')
-    comp_obs = pd.read_csv('../input_data/comp.csv', header=None, skiprows=idx+1, nrows=1).drop(columns=0).values[0].tolist()
+    dp_dry = np.loadtxt(os.path.join(input_dir, 'Dp.txt'))
+    comp_obs = pd.read_csv(os.path.join(input_dir, 'comp.csv'), header=None, skiprows=idx+1, nrows=1).drop(columns=0).values[0].tolist()
 
     Extra = make_EXTRA(dp_dry)
 
@@ -119,6 +123,6 @@ def save_chain_results(samples, idx):
         idx: Index of the window.
     """
     # Save the MCMC samples to a CSV file
-    filename = f'../chains/chain_results_{idx}.csv'
-    save_samples(filename, samples[:,:,0], samples[:,:,1], samples[:,:,2], samples[:,:,3], samples[:,:,4])
+    filename = f'chain_results_{idx}.csv'
+    save_samples(os.path.join(output_dir, filename), samples[:,:,0], samples[:,:,1], samples[:,:,2], samples[:,:,3], samples[:,:,4])
     print(f"Saved MCMC {idx} samples to {filename}")

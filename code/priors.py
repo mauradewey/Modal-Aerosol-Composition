@@ -26,8 +26,8 @@ def joint_GaussianPrior(prior_params):
     """
     # unpack:
     medians = prior_params['medians']
-    # Create a Gaussian log prior for each parameter
-    priors = [pints.GaussianLogPrior(medians[i], medians[i]*0.5) for i in range(len(prior_params))]
+    # Create a Gaussian log prior for each parameter truncated to be positive:
+    priors = [pints.TruncatedGaussianLogPrior(medians[i], medians[i]*0.5, 0.0, np.inf) for i in range(len(prior_params))]
     
     # Combine into a single log-prior
     return pints.ComposedLogPrior(M_org1_prior, *priors)
@@ -43,8 +43,8 @@ def joint_CauchyPrior(prior_params):
     medians = prior_params['medians']
     mad = prior_params['mad']
 
-    # Create a Cauchy log prior for each parameter
-    priors = [pints.CauchyLogPrior(medians[i], mad[i]) for i in range(len(medians))]
+    # Create a Cauchy log prior for each parameter which is truncated to be positive:
+    priors = [pints.HalfCauchyLogPrior(medians[i], mad[i]) for i in range(len(medians))]
     
     # Combine into a single log-prior
     return pints.ComposedLogPrior(M_org1_prior, *priors)
