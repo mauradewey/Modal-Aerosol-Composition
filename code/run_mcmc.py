@@ -38,7 +38,7 @@ def run_mcmc_for_CCNwindow(idx):
         #    initial_parameters*1.01,
         #    initial_parameters*1.02,
         #    ]
-        x0 = get_initial_guesses(log_posterior, joint_CauchyPrior(prior_params))
+        x0 = get_initial_guesses(idx, log_posterior, joint_CauchyPrior(prior_params))
         
         # setup optimisation controller:
         mcmc = pints.MCMCController(log_posterior, MCMC_SETTINGS['chains'], x0, method=pints.DreamMCMC)
@@ -62,7 +62,7 @@ def run_mcmc_for_CCNwindow(idx):
         return f'Failed for window {idx}'
 
 
-def get_initial_guesses(posterior, prior, n_chains=MCMC_SETTINGS['chains'], max_attempts=1000):
+def get_initial_guesses(idx, posterior, prior, n_chains=MCMC_SETTINGS['chains'], max_attempts=1000):
     """
     Generate initial guesses for the MCMC run from a given prior
     and check that it gives a valid posterior.
@@ -76,5 +76,5 @@ def get_initial_guesses(posterior, prior, n_chains=MCMC_SETTINGS['chains'], max_
             x0.append(sample)
         attempts += 1
     if attempts == max_attempts:
-        raise ValueError(f"Could not generate {n_chains} valid initial guesses from the prior.")
+        raise ValueError(f"Could not generate {n_chains} valid initial guesses from the prior for window {idx}.")
     return x0

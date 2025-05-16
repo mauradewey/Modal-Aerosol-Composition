@@ -1,5 +1,5 @@
 
-# main.py
+# main_dask.py
 
 # This script initializes a Dask client and runs the MCMC simulation for each CCN window in parallel.
 
@@ -22,7 +22,6 @@ def main():
 
     # Compute the results in parallel
     compute(*tasks, scheduler='distributed')
-    print("All dask tasks completed.")
 
 if __name__ == "__main__":
     main()
