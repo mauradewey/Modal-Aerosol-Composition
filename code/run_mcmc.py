@@ -23,11 +23,12 @@ def run_mcmc_for_CCNwindow(idx):
 
         # setup model:
         m = CCNmodel_m1(Extra, model_data)
+        prior = joint_CauchyPrior(prior_params)
 
         # setup posterior:
         log_posterior = pints.LogPosterior(
             KnownSigmaGaussianLogLikelihood(m, response),
-            joint_CauchyPrior(prior_params)
+            prior
         )
 
         # intialize MCMC chains:
@@ -38,7 +39,7 @@ def run_mcmc_for_CCNwindow(idx):
         #    initial_parameters*1.01,
         #    initial_parameters*1.02,
         #    ]
-        x0 = get_initial_guesses(idx, log_posterior, joint_CauchyPrior(prior_params))
+        x0 = get_initial_guesses(idx, log_posterior, prior)
         
         # setup optimisation controller:
         mcmc = pints.MCMCController(log_posterior, MCMC_SETTINGS['chains'], x0, method=pints.DreamMCMC)
