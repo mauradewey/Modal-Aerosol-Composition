@@ -3,12 +3,12 @@
 
 # This file runs the DREAM Monte Carlo Markov Chain (MCMC) simulation for CCN closure.
 # Here we choose the specific model, likelihood, and prior classes.
-# The MCMC settings are defined in config.py.
+# Make sure that MCMC settings are set in the config.py file.
 
-from models import CCNmodel_m1
+from models import CCNmodel_m2
 from likelihoods import KnownSigmaGaussianLogLikelihood
 from priors import joint_CauchyPrior
-from config import MCMC_SETTINGS, get_Extra, load_data, save_chain_results
+from config import get_Extra, load_data, get_initial_samples, save_chain_results, MCMC_SETTINGS
 import pints
 import numpy as np
 
@@ -22,7 +22,7 @@ def run_mcmc_for_CCNwindow(idx):
         model_data, initial_guesses, prior_params, response = load_data(idx)
 
         # setup model:
-        m = CCNmodel_m1(Extra, model_data)
+        m = CCNmodel_m2(Extra, model_data)
         prior = joint_CauchyPrior(prior_params)
 
         # setup posterior:
@@ -31,15 +31,8 @@ def run_mcmc_for_CCNwindow(idx):
             prior
         )
 
-        # intialize MCMC chains:
-        #initial_parameters = np.array(initial_guesses)
-        #x0 = [
-        #    initial_parameters*0.98,
-        #    initial_parameters*0.99,
-        #    initial_parameters*1.01,
-        #    initial_parameters*1.02,
-        #    ]
-        x0 = get_initial_guesses(idx, log_posterior, prior)
+        #x0 = get_initial_guesses(idx, log_posterior, prior)
+        x0 = get_initial_samples(log_posterior, np.array(initial_guesses), MCMC_SETTINGS['chains'])
         
         # setup optimisation controller:
         mcmc = pints.MCMCController(log_posterior, MCMC_SETTINGS['chains'], x0, method=pints.DreamMCMC)
@@ -49,12 +42,12 @@ def run_mcmc_for_CCNwindow(idx):
 
         # run MCMC:
         samples = mcmc.run()
-        print(f"Done for window {idx}")
+        print(f"Done MCMC for window {idx}")
 
-        # save results:
-        save_chain_results(samples, idx)
-        
-        print(f"Finished MCMC for CCN window {idx}.")
+        # save chains:
+        print(f"Saving chains for window {idx}.")
+        save_chain_results(samples, MCMC_SETTINGS['chains'], idx)
+
 
     except Exception as e:
         print(f"Error in MCMC for CCN window {idx}: {e}")
@@ -63,19 +56,3 @@ def run_mcmc_for_CCNwindow(idx):
         return f'Failed for window {idx}'
 
 
-def get_initial_guesses(idx, posterior, prior, n_chains=MCMC_SETTINGS['chains'], max_attempts=1000):
-    """
-    Generate initial guesses for the MCMC run from a given prior
-    and check that it gives a valid posterior.
-    """
-    x0 = []
-    attempts = 0
-
-    while len(x0) < n_chains and attempts < max_attempts:
-        sample = prior.sample().flatten()
-        if np.isfinite(posterior(sample)):
-            x0.append(sample)
-        attempts += 1
-    if attempts == max_attempts:
-        raise ValueError(f"Could not generate {n_chains} valid initial guesses from the prior for window {idx}.")
-    return x0

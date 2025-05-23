@@ -13,11 +13,14 @@ from pints.io import save_samples
 input_dir = '/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/input_data/'
 output_dir = '/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/chains/'
 
+base_fname = '20klength_testidx20_modelm2'
+
 MCMC_SETTINGS = {
-    'max_iterations': 20000,  # Number of MCMC iterations
-    'burn_in': 2000,     # Number of burn-in iterations
-    'chains': 4,         # Number of MCMC chains
+'max_iterations': 20000,  # Number of MCMC iterations
+'burn_in': 5000,     # Number of burn-in iterations
+'chains': 5,         # Number of MCMC chains
 }
+
 
 def load_data(idx):
     '''
@@ -114,7 +117,7 @@ def get_Extra(idx):
     return Extra
 
 
-def save_chain_results(samples, idx):
+def save_chain_results(samples, nchains, idx):
     """
     Save the MCMC chain results to a CSV file.
 
@@ -123,6 +126,45 @@ def save_chain_results(samples, idx):
         idx: Index of the window.
     """
     # Save the MCMC samples to a CSV file
-    filename = f'chain_results_{idx}.csv'
+    filename = f'mcmc_{base_fname}_{nchains}chains_{idx}.csv'
     save_samples(os.path.join(output_dir, filename), samples[:,:,0], samples[:,:,1], samples[:,:,2], samples[:,:,3], samples[:,:,4])
     print(f"Saved MCMC {idx} samples to {filename}")
+
+
+def get_initial_guesses(idx, posterior, prior, n_chains=MCMC_SETTINGS['chains'], max_attempts=1000):
+    """
+    Generate initial guesses for the MCMC run from a given prior
+    and check that it gives a valid posterior.
+    """
+    x0 = []
+    attempts = 0
+
+    while len(x0) < n_chains and attempts < max_attempts:
+        sample = prior.sample().flatten()
+        if np.isfinite(posterior(sample)):
+            x0.append(sample)
+        attempts += 1
+    if attempts == max_attempts:
+        raise ValueError(f"Could not generate {n_chains} valid initial guesses from the prior for window {idx}.")
+    return x0
+
+
+def get_initial_samples(posterior, base_values, num_samples, perturbation=0.1):
+    base_values = np.asarray(base_values)
+    lower = np.maximum((1-perturbation) * base_values, 1e-6)  # Avoid negative values
+    upper = (1+perturbation) * base_values
+  
+    samples = []
+    attempts = 0
+    max_attempts = 100
+
+    while len(samples) < num_samples and attempts < max_attempts * num_samples:
+        test = np.random.uniform(lower, upper)
+        if np.isfinite(posterior(test)):
+            samples.append(test)
+        attempts += 1
+
+    if len(samples) < num_samples:
+        raise RuntimeError(f"Could not generate {num_samples} valid initial guesses.")
+
+    return samples
