@@ -13,7 +13,7 @@ from pints.io import save_samples
 input_dir = '/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/input_data/'
 output_dir = '/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/chains/'
 
-base_fname = '20klength_testidx20_modelm2'
+base_fname = '20k_idx20_m2_newconfig'
 
 MCMC_SETTINGS = {
 'max_iterations': 20000,  # Number of MCMC iterations
@@ -151,15 +151,14 @@ def get_initial_guesses(idx, posterior, prior, n_chains=MCMC_SETTINGS['chains'],
 
 def get_initial_samples(posterior, base_values, num_samples, perturbation=0.1):
     base_values = np.asarray(base_values)
-    lower = np.maximum((1-perturbation) * base_values, 1e-6)  # Avoid negative values
-    upper = (1+perturbation) * base_values
   
     samples = []
     attempts = 0
     max_attempts = 100
 
     while len(samples) < num_samples and attempts < max_attempts * num_samples:
-        test = np.random.uniform(lower, upper)
+        factor = np.random.uniform(1-perturbation, 1+perturbation)
+        test = base_values * factor
         if np.isfinite(posterior(test)):
             samples.append(test)
         attempts += 1
