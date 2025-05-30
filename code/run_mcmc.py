@@ -5,7 +5,7 @@
 # Here we choose the specific model, likelihood, and prior classes.
 # Make sure that MCMC settings are set in the config.py file.
 
-from models import CCNmodel_m2
+from models import CCNmodel_m1
 from likelihoods import KnownSigmaGaussianLogLikelihood
 from priors import joint_CauchyPrior
 from config import get_Extra, load_data, get_initial_samples, save_chain_results, MCMC_SETTINGS
@@ -22,7 +22,7 @@ def run_mcmc_for_CCNwindow(idx):
         model_data, initial_guesses, prior_params, response = load_data(idx)
 
         # setup model:
-        m = CCNmodel_m2(Extra, model_data)
+        m = CCNmodel_m1(Extra, model_data)
         prior = joint_CauchyPrior(prior_params)
 
         # setup posterior:
@@ -32,7 +32,7 @@ def run_mcmc_for_CCNwindow(idx):
         )
 
         #x0 = get_initial_guesses(idx, log_posterior, prior)
-        x0 = get_initial_samples(log_posterior, np.array(initial_guesses), MCMC_SETTINGS['chains'])
+        x0 = get_initial_samples(idx, log_posterior, np.array(initial_guesses), MCMC_SETTINGS['chains'])
         
         # setup optimisation controller:
         mcmc = pints.MCMCController(log_posterior, MCMC_SETTINGS['chains'], x0, method=pints.DreamMCMC)

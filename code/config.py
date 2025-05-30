@@ -13,10 +13,10 @@ from pints.io import save_samples
 input_dir = '/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/input_data/'
 output_dir = '/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/chains/'
 
-base_fname = '20k_idx20_m2_newconfig'
+base_fname = '30k_m1'  # Base filename for saving MCMC results
 
 MCMC_SETTINGS = {
-'max_iterations': 20000,  # Number of MCMC iterations
+'max_iterations': 30000,  # Number of MCMC iterations
 'burn_in': 5000,     # Number of burn-in iterations
 'chains': 5,         # Number of MCMC chains
 }
@@ -149,7 +149,7 @@ def get_initial_guesses(idx, posterior, prior, n_chains=MCMC_SETTINGS['chains'],
     return x0
 
 
-def get_initial_samples(posterior, base_values, num_samples, perturbation=0.1):
+def get_initial_samples(idx, posterior, base_values, num_samples, perturbation=0.1):
     base_values = np.asarray(base_values)
   
     samples = []
@@ -164,6 +164,6 @@ def get_initial_samples(posterior, base_values, num_samples, perturbation=0.1):
         attempts += 1
 
     if len(samples) < num_samples:
-        raise RuntimeError(f"Could not generate {num_samples} valid initial guesses.")
+        raise RuntimeError(f"Could not generate {num_samples} valid initial guesses for window {idx}.")
 
     return samples
