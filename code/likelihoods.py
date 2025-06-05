@@ -124,3 +124,73 @@ class GaussianLogLikelihood(pints.LogPDF):
     def n_parameters(self):
         """Return the number of parameters expected (including one sigma per output)."""
         return self.n_total_parameters
+    
+
+
+class KnownSigmaGaussianLogLikelihoodLogParams(pints.LogPDF):
+
+    def __init__(self, model, observed_data):
+        """
+        Custom Gaussian log-likelihood with known measurement noise (sigma).
+        Here sigma is set to 10% of the observed data.
+        
+        Based on PINTS implementation:
+        https://pints.readthedocs.io/en/stable/_modules/pints/_log_likelihoods.html#GaussianKnownSigmaLogLikelihood
+    
+        Args:
+        - model: A callable forward model.
+        - observed_data: Observations (numpy array).
+        """
+        
+        self.model = model
+        self.observed_data = np.array(observed_data)
+        self._no = model.n_outputs() # Number of model outputs (CCN at 5 supersaturations)
+        self._np = model.n_parameters() # total number of parameters (just model parameters)
+        
+        # for now we assume sigma is 10% of the observed data
+        sigma = 0.1 * self.observed_data
+        
+        # Ensure all sigma values are positive floats
+        if np.isscalar(sigma):
+            sigma = np.ones(self._no) * float(sigma)  # Convert to array if scalar
+        else:
+            sigma = pints.vector(sigma)  # Ensure it's a numpy array
+            if len(sigma) != self._no:
+                raise ValueError("Sigma must have the same length as the number of outputs.")
+        
+        if np.any(sigma <= 0):
+            raise ValueError("Sigma values must be positive.")
+        
+        # pre-calculate parts:
+        self._offset = -0.5 * np.log(2 * np.pi)
+        self._offset -= np.log(sigma)
+        self._multip = -1 / (2.0 * sigma**2)
+        
+    def __call__(self, log_parameters):
+
+        parameters = np.exp(log_parameters)  # Convert log parameters back to original scale
+        total_ccn = self.model(parameters) # Call the model with parameters
+
+        # If model returns None (invalid parameters), reject sample
+        if total_ccn is None:
+            return -np.inf
+
+        # Convert model output to numpy array
+        total_ccn = np.array(total_ccn)
+
+        # Ensure model output shape matches observed data
+        if total_ccn.shape != self.observed_data.shape:
+            return -np.inf
+
+        # Compute residuals
+        residuals = self.observed_data - total_ccn
+
+        # Compute log-likelihood
+        log_likelihood = np.sum(self._offset + self._multip * np.sum(residuals**2, axis=0))
+
+        return log_likelihood
+
+    def n_parameters(self):
+        """Return the number of parameters expected."""
+        return self._np
+    

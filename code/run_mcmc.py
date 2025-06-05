@@ -6,9 +6,9 @@
 # Make sure that MCMC settings are set in the config.py file.
 
 from models import CCNmodel_m1
-from likelihoods import KnownSigmaGaussianLogLikelihood
+from likelihoods import KnownSigmaGaussianLogLikelihoodLogParams
 from priors import joint_CauchyPrior
-from config import get_Extra, load_data, get_initial_samples, save_chain_results, MCMC_SETTINGS
+from config import get_Extra, load_data, get_initial_log_samples, save_chain_results, MCMC_SETTINGS
 import pints
 import numpy as np
 
@@ -23,16 +23,17 @@ def run_mcmc_for_CCNwindow(idx):
 
         # setup model:
         m = CCNmodel_m1(Extra, model_data)
-        prior = joint_CauchyPrior(prior_params)
+        prior = joint_CauchyPrior(np.log(prior_params))
 
         # setup posterior:
         log_posterior = pints.LogPosterior(
-            KnownSigmaGaussianLogLikelihood(m, response),
+            KnownSigmaGaussianLogLikelihoodLogParams(m, response),
             prior
         )
 
         #x0 = get_initial_guesses(idx, log_posterior, prior)
-        x0 = get_initial_samples(idx, log_posterior, np.array(initial_guesses), MCMC_SETTINGS['chains'])
+        #x0 = get_initial_samples(idx, log_posterior, np.array(initial_guesses), MCMC_SETTINGS['chains'])
+        x0 = get_initial_log_samples(idx, log_posterior, np.array(initial_guesses), MCMC_SETTINGS['chains'])
         
         # setup optimisation controller:
         mcmc = pints.MCMCController(log_posterior, MCMC_SETTINGS['chains'], x0, method=pints.DreamMCMC)
@@ -41,11 +42,12 @@ def run_mcmc_for_CCNwindow(idx):
         mcmc.set_log_to_screen(False)
 
         # run MCMC:
-        samples = mcmc.run()
+        log_samples = mcmc.run()
         print(f"Done MCMC for window {idx}")
 
         # save chains:
         print(f"Saving chains for window {idx}.")
+        samples = np.exp(log_samples)
         save_chain_results(samples, MCMC_SETTINGS['chains'], idx)
 
 
