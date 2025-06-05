@@ -7,6 +7,7 @@ from scipy.stats import mode
 import pints
 import pints.io
 import argparse
+import pdb
 
 '''
 Loop though MCMC chains and summarize the posterior distributions of parameters.
@@ -23,16 +24,16 @@ def main(chain_base, output_file, burn_in):
     # Loop over parameter windows
     for ii in range(len(mcmc_params)):
         try:
-            chains = sorted(glob.glob(f'/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/chains/{chain_base}_{str(ii)}_*.csv'))
+            files = sorted(glob.glob(f'/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/chains/{chain_base}_{str(ii)}_*.csv'))
 
-            M_org1_chains = pints.io.load_samples(chains[0])
-            D1_chains     = pints.io.load_samples(chains[1])
-            N1_chains     = pints.io.load_samples(chains[2])
-            D2_chains     = pints.io.load_samples(chains[3])
-            N2_chains     = pints.io.load_samples(chains[4])
+            M_org1_chains = pints.io.load_samples(files[0])
+            D1_chains     = pints.io.load_samples(files[1])
+            N1_chains     = pints.io.load_samples(files[2])
+            D2_chains     = pints.io.load_samples(files[3])
+            N2_chains     = pints.io.load_samples(files[4])
 
             #burn_in = 15000
-            burn_in_ratio = burn_in / M_org1_chains.shape[1]
+            burn_in_ratio = np.round(burn_in / M_org1_chains.shape[1], 2)
 
             param_dict = {
                 'M_org1': M_org1_chains,
@@ -46,7 +47,7 @@ def main(chain_base, output_file, burn_in):
                 samples = chains[:, burn_in:]
                 mcmc_params.at[ii, f'{param}_mean']   = np.mean(samples)
                 mcmc_params.at[ii, f'{param}_median'] = np.median(samples)
-                mcmc_params.at[ii, f'{param}_mode']    = mode(samples)[0]
+                mcmc_params.at[ii, f'{param}_mode']    = mode(samples,axis=None)[0]
                 mcmc_params.at[ii, f'{param}_std']    = np.std(samples)
                 mcmc_params.at[ii, f'{param}_rhat']   = pints.rhat(chains, burn_in_ratio)
                 mcmc_params.at[ii, f'{param}_25']     = np.percentile(samples, 2.5)
