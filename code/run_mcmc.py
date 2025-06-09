@@ -6,11 +6,12 @@
 # Make sure that MCMC settings are set in the config.py file.
 
 from models import CCNmodel_m1
-from likelihoods import KnownSigmaGaussianLogLikelihoodLogParams
+from likelihoods import KnownSigmaGaussianLogLikelihood
 from priors import joint_CauchyPrior
-from config import get_Extra, load_data, get_initial_log_samples, save_chain_results, MCMC_SETTINGS
+from config import get_Extra, load_data, get_initial_samples, save_chain_results, MCMC_SETTINGS
 import pints
 import numpy as np
+import pdb
 
 def run_mcmc_for_CCNwindow(idx):
 
@@ -23,31 +24,33 @@ def run_mcmc_for_CCNwindow(idx):
 
         # setup model:
         m = CCNmodel_m1(Extra, model_data)
-        prior = joint_CauchyPrior(np.log(prior_params))
+        prior = joint_CauchyPrior(prior_params)
 
         # setup posterior:
         log_posterior = pints.LogPosterior(
-            KnownSigmaGaussianLogLikelihoodLogParams(m, response),
+            KnownSigmaGaussianLogLikelihood(m, response),
             prior
         )
 
         #x0 = get_initial_guesses(idx, log_posterior, prior)
-        #x0 = get_initial_samples(idx, log_posterior, np.array(initial_guesses), MCMC_SETTINGS['chains'])
-        x0 = get_initial_log_samples(idx, log_posterior, np.array(initial_guesses), MCMC_SETTINGS['chains'])
-        
+        x0 = get_initial_samples(idx, log_posterior, np.array(initial_guesses), MCMC_SETTINGS['chains'])
+        #x0 = get_initial_log_samples(idx, log_posterior, np.array(initial_guesses), MCMC_SETTINGS['chains'])
+
+
         # setup optimisation controller:
-        mcmc = pints.MCMCController(log_posterior, MCMC_SETTINGS['chains'], x0, method=pints.DreamMCMC)
+        transform = pints.LogTransformation(n_parameters=m.n_parameters()) # use to sample in log space
+        mcmc = pints.MCMCController(log_posterior, MCMC_SETTINGS['chains'], x0, method=pints.DreamMCMC, transformation=transform)
         mcmc.set_initial_phase_iterations(MCMC_SETTINGS['burn_in'])
         mcmc.set_max_iterations(MCMC_SETTINGS['max_iterations'])
         mcmc.set_log_to_screen(False)
 
         # run MCMC:
-        log_samples = mcmc.run()
+        samples = mcmc.run()
         print(f"Done MCMC for window {idx}")
 
         # save chains:
         print(f"Saving chains for window {idx}.")
-        samples = np.exp(log_samples)
+        samples = np.exp(samples)
         save_chain_results(samples, MCMC_SETTINGS['chains'], idx)
 
 

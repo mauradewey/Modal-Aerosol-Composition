@@ -36,7 +36,7 @@ def load_data(idx):
         - 'comp_obs': observed total mass and ACSM mass fractions
 
     Returns:
-        -model_inputs: [mode1 GSD, mode2 GSD, aerosol mass median, min, max] (GSD are not optmized, aserosol mass is for mass conservation)
+        -model_inputs: [mode1 GSD, mode2 GSD, aerosol mass median, min, max, aitken mass median, accumulation mass median] (GSD are not optmized, aserosol mass is for mass conservation)
         -initial_guesses: [M_org1, mode1_d, mode1_N, mode2_d, mode2_N] (optmization parameters: mass fraction of organics in Aitken mode, median diameter and number concentration of the two modes)
         -prior_params: [median, MAD, min, max] for the bimodal parameters (used to set up the priors)
         -response: [CCN obs] (number concentration at 5 super saturation ratios)
@@ -46,7 +46,7 @@ def load_data(idx):
     response = pd.read_csv(os.path.join(input_dir, 'CCN.csv'), header=None, skiprows=idx+1, nrows=1).drop(columns=0).values[0]
     M_org1_initial = pd.read_csv(os.path.join(input_dir, 'M_org1_initialguess.csv'),header=None, skiprows=idx+1, nrows=1).squeeze()
     bimodal_params = pd.read_csv(os.path.join(input_dir, 'bimodal_params_windows.csv'),header=None, skiprows=idx+1, nrows=1).drop(columns=0).values[0]
-    median_mass = pd.read_csv(os.path.join(input_dir, 'mass_from_median_NSDparams.csv'), header=None, skiprows=idx+1, nrows=1).drop(columns=1).squeeze()
+    mass = pd.read_csv(os.path.join(input_dir, 'total_mass_median_NSDparams.csv'), header=None, skiprows=idx+1, nrows=1).drop(columns=0).squeeze()
     mass_range = pd.read_csv(os.path.join(input_dir, 'mass_highres_range.csv'), header=None, skiprows=10+1, nrows=1).drop(columns=2).values[0]
     
     initial_guesses = [M_org1_initial, # fraction of organics in Aitken mode
@@ -59,9 +59,11 @@ def load_data(idx):
     model_inputs = [
         bimodal_params[2], # mode1_sigma
         bimodal_params[5], # mode2_sigma
-        median_mass, # total aerosol mass (calculated with median of fitted bimodal parameters)
+        mass[1], # total aerosol mass (calculated with median of fitted bimodal parameters)
         mass_range[0], # min total aerosol mass (calculated with fitted bimodal parameters)
         mass_range[1], # max total aerosol mass (calculated with fitted bimodal parameters)
+        mass[2], # aitken mass median (calculated with median of fitted bimodal parameters)
+        mass[3], # accumulation mass median (calculated with median of fitted bimodal parameters)
     ]
 
     prior_params = {'medians': [bimodal_params[1], bimodal_params[7], bimodal_params[4], bimodal_params[8]],
@@ -154,7 +156,7 @@ def get_initial_samples(idx, posterior, base_values, num_samples, perturbation=0
   
     samples = []
     attempts = 0
-    max_attempts = 100
+    max_attempts = 500
 
     while len(samples) < num_samples and attempts < max_attempts * num_samples:
         factor = np.random.uniform(1-perturbation, 1+perturbation)
@@ -171,16 +173,16 @@ def get_initial_samples(idx, posterior, base_values, num_samples, perturbation=0
 
 def get_initial_log_samples(idx, posterior, base_values, num_samples, perturbation=0.1):
     base_values = np.asarray(base_values)
-  
+    log_base = np.log(base_values)
     samples = []
     attempts = 0
-    max_attempts = 100
+    max_attempts = 500
 
     while len(samples) < num_samples and attempts < max_attempts * num_samples:
-        factor = np.random.uniform(1-perturbation, 1+perturbation)
-        test = base_values * factor
-        if np.isfinite(posterior(np.log(test))):
-            samples.append(np.log(test))
+        perturb = np.random.uniform(-perturbation, +perturbation, size=log_base.shape)
+        test = log_base + perturb
+        if np.isfinite(posterior(test)):
+            samples.append(test)
         attempts += 1
 
     if len(samples) < num_samples:

@@ -83,27 +83,19 @@ def joint_SigmaPrior(param_prior, response):
     # Combine into a single log-prior
     return pints.ComposedLogPrior(param_prior, sigma_prior)
 
-
-class LogTransformedHalfCauchyPrior(pints.LogPrior):
-    def __init__(self, location, scale):
-        self.prior = pints.HalfCauchyLogPrior(location, scale)
-
-    def __call__(self, x):
-        # x is in log-space
-        p = np.exp(x)
-        log_jacobian = np.sum(x)  # Jacobian correction: sum of logs
-        return self.prior(p) + log_jacobian
-
-    def sample(self):
-        return np.log(self.prior.sample())
-
-    def n_parameters(self):
-        return self.prior.n_parameters()
     
 def joint_LogCauchyPrior(prior_params):
+    """
+    Args:
+        prior_params (dict): Dictionary containing the median and MAD of the NSD parameter values, so the priors are centered
+        on the initial guesses. Scale is set to the median absolute deviation.
+    """
+    # unpack:
     medians = prior_params['medians']
     mad = prior_params['mad']
 
-    priors = [LogTransformedHalfCauchyPrior(medians[i], mad[i]) for i in range(len(medians))]
+    # Create a Cauchy log prior for each parameter which is truncated to be positive:
+    priors = [pints.HalfCauchyLogPrior(np.log(medians[i]), np.log(mad[i])) for i in range(len(medians))]
     
-    return pints.ComposedLogPrior(*priors)
+    # Combine into a single log-prior
+    return pints.ComposedLogPrior(M_org1_prior, *priors)
