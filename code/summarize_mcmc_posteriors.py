@@ -12,7 +12,7 @@ import pdb
 '''
 Loop though MCMC chains and summarize the posterior distributions of parameters.
 Example usage in terminal:
-python summarize_mcmc_posteriors.py --chain_base mcmc_30k*5chains --output_file ../summary_30k_5chains.csv --burn_in 15000
+python summarize_mcmc_posteriors.py --chain_base mcmc_30k*5chains --output_file summary_30k_5chains.csv --burn_in 15000
 '''
 
 def main(chain_base, output_file, burn_in):
@@ -66,7 +66,8 @@ def main(chain_base, output_file, burn_in):
     mcmc_params.to_csv(output_path, index=False)
     print(f"\nSaved results to: {output_file}")
     if missing_windows:
-        print(f"Missing windows: {missing_windows}")
+        #print(f"Missing windows: {missing_windows}")
+        missing_windows.to_csv(f'/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/missing_windows_{output_file}', index=False)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Summarize MCMC chains into parameter statistics.")

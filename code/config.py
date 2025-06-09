@@ -13,7 +13,7 @@ from pints.io import save_samples
 input_dir = '/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/input_data/'
 output_dir = '/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/chains/'
 
-base_fname = '30k_m1_logparams'  # Base filename for saving MCMC results
+base_fname = '30k_m2_logparams'  # Base filename for saving MCMC results
 
 MCMC_SETTINGS = {
 'max_iterations': 30000,  # Number of MCMC iterations
@@ -161,26 +161,6 @@ def get_initial_samples(idx, posterior, base_values, num_samples, perturbation=0
     while len(samples) < num_samples and attempts < max_attempts * num_samples:
         factor = np.random.uniform(1-perturbation, 1+perturbation)
         test = base_values * factor
-        if np.isfinite(posterior(test)):
-            samples.append(test)
-        attempts += 1
-
-    if len(samples) < num_samples:
-        raise RuntimeError(f"Could not generate {num_samples} valid initial guesses for window {idx}.")
-
-    return samples
-
-
-def get_initial_log_samples(idx, posterior, base_values, num_samples, perturbation=0.1):
-    base_values = np.asarray(base_values)
-    log_base = np.log(base_values)
-    samples = []
-    attempts = 0
-    max_attempts = 500
-
-    while len(samples) < num_samples and attempts < max_attempts * num_samples:
-        perturb = np.random.uniform(-perturbation, +perturbation, size=log_base.shape)
-        test = log_base + perturb
         if np.isfinite(posterior(test)):
             samples.append(test)
         attempts += 1
