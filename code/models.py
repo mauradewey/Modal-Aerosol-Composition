@@ -120,8 +120,8 @@ class CCNmodel_m2(pints.ForwardModel):
         self.Extra = Extra # Extra is a dictionary containing all constant parameters for the CCN closure calculation     
         self.GSD1 = model_data[0] # geometric standard deviation for mode 1
         self.GSD2 = model_data[1] # geometric standard deviation for mode 2
-        self.ait_mass = model_data[5] # minimum mass for optimization
-        self.acc_mass = model_data[6] # maximum mass for optimization
+        self.ait_mass = model_data[5] # aitken mass 
+        self.acc_mass = model_data[6] # accumulation mass
 
         # Define the return_all flag: True, return all outputs (CCN, k_org, k_inorg, mass fractions, total masses). False, return only the total CCN (default for optimization)
         self.return_all = return_all
@@ -169,8 +169,8 @@ class CCNmodel_m2(pints.ForwardModel):
 
         # Ensure mass is non-negative and within tolerance
         if(
-        (0.9 * self.ait_mass < total_ait_mass < 1.1 * self.ait_mass) and
-        (0.9 * self.acc_mass < total_acc_mass < 1.1 * self.acc_mass) and
+        (0.99 * self.ait_mass < total_ait_mass < 1.01 * self.ait_mass) and
+        (0.99 * self.acc_mass < total_acc_mass < 1.01 * self.acc_mass) and
         M_org2 >= 0 and M_AS2 >= 0 and M_AS1 >= 0 and M_org1 >= 0
         ):
             

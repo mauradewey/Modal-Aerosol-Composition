@@ -13,10 +13,10 @@ from pints.io import save_samples
 input_dir = '/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/input_data/'
 output_dir = '/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/chains/'
 
-base_fname = '30k_m2_logparams'  # Base filename for saving MCMC results
+base_fname = '50k_m2_1pct'  # Base filename for saving MCMC results
 
 MCMC_SETTINGS = {
-'max_iterations': 30000,  # Number of MCMC iterations
+'max_iterations': 50000,  # Number of MCMC iterations
 'burn_in': 5000,     # Number of burn-in iterations
 'chains': 5,         # Number of MCMC chains
 }

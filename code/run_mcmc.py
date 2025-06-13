@@ -32,14 +32,11 @@ def run_mcmc_for_CCNwindow(idx):
             prior
         )
 
-        #x0 = get_initial_guesses(idx, log_posterior, prior)
         x0 = get_initial_samples(idx, log_posterior, np.array(initial_guesses), MCMC_SETTINGS['chains'])
-        #x0 = get_initial_log_samples(idx, log_posterior, np.array(initial_guesses), MCMC_SETTINGS['chains'])
-
 
         # setup optimisation controller:
-        transform = pints.LogTransformation(n_parameters=m.n_parameters()) # use to sample in log space
-        mcmc = pints.MCMCController(log_posterior, MCMC_SETTINGS['chains'], x0, method=pints.DreamMCMC, transformation=transform)
+        #transform = pints.LogTransformation(n_parameters=m.n_parameters()) # use to sample in log space
+        mcmc = pints.MCMCController(log_posterior, MCMC_SETTINGS['chains'], x0, method=pints.DreamMCMC)#, transformation=transform)
         mcmc.set_initial_phase_iterations(MCMC_SETTINGS['burn_in'])
         mcmc.set_max_iterations(MCMC_SETTINGS['max_iterations'])
         mcmc.set_log_to_screen(False)

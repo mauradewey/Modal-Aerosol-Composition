@@ -12,19 +12,19 @@ import pdb
 '''
 Loop though MCMC chains and summarize the posterior distributions of parameters.
 Example usage in terminal:
-python summarize_mcmc_posteriors.py --chain_base mcmc_30k*5chains --output_file summary_30k_5chains.csv --burn_in 15000
+python summarize_mcmc_posteriors.py --chain_folder m2_30k_5chains --output_file summary_30k_m2_5chains.csv --burn_in 15000
 '''
 
-def main(chain_base, output_file, burn_in):
+def main(chain_folder, output_file, burn_in):
 
-    bimodal_params = pd.read_csv('/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/input_data/bimodal_params_windows.csv')  # adjust path if needed
+    bimodal_params = pd.read_csv('/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/input_data/bimodal_params_windows.csv') 
     mcmc_params = pd.DataFrame({'datetime': bimodal_params['datetime']})
     missing_windows = []
 
     # Loop over parameter windows
     for ii in range(len(mcmc_params)):
         try:
-            files = sorted(glob.glob(f'/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/chains/{chain_base}_{str(ii)}_*.csv'))
+            files = sorted(glob.glob(f'/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/chains/{chain_folder}/*_{str(ii)}_*.csv'))
 
             M_org1_chains = pints.io.load_samples(files[0])
             D1_chains     = pints.io.load_samples(files[1])
@@ -62,18 +62,19 @@ def main(chain_base, output_file, burn_in):
             continue
 
     # Save the final summary
-    output_path = f'/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/{output_file}'
+    output_path = f'/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/results/{output_file}'
     mcmc_params.to_csv(output_path, index=False)
     print(f"\nSaved results to: {output_file}")
-    if missing_windows:
+    #if missing_windows:
         #print(f"Missing windows: {missing_windows}")
-        missing_windows.to_csv(f'/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/missing_windows_{output_file}', index=False)
+    #    missing_windows_df = pd.DataFrame({'missing_windows': missing_windows})
+    #    missing_windows_df.to_csv(f'/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/results/missing_windows_{output_file}', index=False)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Summarize MCMC chains into parameter statistics.")
-    parser.add_argument('--chain_base', type=str, required=True, help='Base path and prefix of chain files (excluding index and suffix).')
+    parser.add_argument('--chain_folder', type=str, required=True, help='folder where chains are stored for a particular experiment.')
     parser.add_argument('--output_file', type=str, required=True, help='Path to save the output CSV.')
     parser.add_argument('--burn_in', type=int, required=True, help='Number of samples to discard as burn-in.')
     args = parser.parse_args()
 
-    main(args.chain_base, args.output_file, args.burn_in)
+    main(args.chain_folder, args.output_file, args.burn_in)
