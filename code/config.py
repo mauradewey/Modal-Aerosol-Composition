@@ -8,17 +8,21 @@ import pandas as pd
 import numpy as np
 import os
 from inv_ccn_utils import make_EXTRA
-from pints.io import save_samples
+from pints.io import save_samples, load_samples
+import glob
 
-input_dir = '/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/input_data/'
-output_dir = '/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/chains/'
+input_dir = '/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/input_data/' #input data
+output_dir = '/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/chains/' #print chains here
+restart_dir = 'm2_30k_5chains' #folder with existing chains to restart from
 
-base_fname = '50k_m2_1pct'  # Base filename for saving MCMC results
+base_fname = '30k_m2_restarts'  # Base filename for saving MCMC results
+restart_fname = 'mcmc_30k_m2_5chains_5chains'  # Base filename for restarting MCMC
 
 MCMC_SETTINGS = {
-'max_iterations': 50000,  # Number of MCMC iterations
-'burn_in': 5000,     # Number of burn-in iterations
+'max_iterations': 30000,  # Maximum number of MCMC iterations
+'burn_in': 0,     # Number of burn-in iterations
 'chains': 5,         # Number of MCMC chains
+'restart': True,  # Whether to restart from existing chains
 }
 
 
@@ -45,7 +49,7 @@ def load_data(idx):
     # load data:
     response = pd.read_csv(os.path.join(input_dir, 'CCN.csv'), header=None, skiprows=idx+1, nrows=1).drop(columns=0).values[0]
     M_org1_initial = pd.read_csv(os.path.join(input_dir, 'M_org1_initialguess.csv'),header=None, skiprows=idx+1, nrows=1).squeeze()
-    bimodal_params = pd.read_csv(os.path.join(input_dir, 'bimodal_params_windows.csv'),header=None, skiprows=idx+1, nrows=1).drop(columns=0).values[0]
+    bimodal_params = pd.read_csv(os.path.join(input_dir, 'bimodal_params_medians.csv'),header=None, skiprows=idx+1, nrows=1).drop(columns=0).values[0]
     mass = pd.read_csv(os.path.join(input_dir, 'total_mass_median_NSDparams.csv'), header=None, skiprows=idx+1, nrows=1).drop(columns=0).squeeze()
     mass_range = pd.read_csv(os.path.join(input_dir, 'mass_highres_range.csv'), header=None, skiprows=10+1, nrows=1).drop(columns=2).values[0]
     
@@ -67,10 +71,10 @@ def load_data(idx):
     ]
 
     prior_params = {'medians': [bimodal_params[1], bimodal_params[7], bimodal_params[4], bimodal_params[8]],
-                    'mad': [bimodal_params[11], bimodal_params[17], bimodal_params[14], bimodal_params[20]],
-                    'min': [bimodal_params[10], bimodal_params[16], bimodal_params[13], bimodal_params[19]],
-                    'max': [bimodal_params[9], bimodal_params[15], bimodal_params[12], bimodal_params[18]],
-    }
+                    'mad': [bimodal_params[9], bimodal_params[15], bimodal_params[12], bimodal_params[16]],}
+    #                'min': [bimodal_params[10], bimodal_params[16], bimodal_params[13], bimodal_params[19]],
+    #                'max': [bimodal_params[9], bimodal_params[15], bimodal_params[12], bimodal_params[18]],
+    #}
 
     return model_inputs, initial_guesses, prior_params, response
 
@@ -151,21 +155,104 @@ def get_initial_guesses(idx, posterior, prior, n_chains=MCMC_SETTINGS['chains'],
     return x0
 
 
-def get_initial_samples(idx, posterior, base_values, num_samples, perturbation=0.1):
+def get_initial_samples(idx, posterior, base_values, num_samples, perturbation=0.2):
     base_values = np.asarray(base_values)
   
     samples = []
     attempts = 0
-    max_attempts = 500
+    max_attempts = 1000
 
-    while len(samples) < num_samples and attempts < max_attempts * num_samples:
-        factor = np.random.uniform(1-perturbation, 1+perturbation)
-        test = base_values * factor
-        if np.isfinite(posterior(test)):
-            samples.append(test)
+    # Try base values first
+    if np.isfinite(posterior(base_values)):
+        samples.append(base_values)
+    else:
+        print(f"Base values for window {idx} yielded invalid posterior.")
+
+    # Perturb base values to generate additional starting points
+    while len(samples) < num_samples and attempts < max_attempts:
+        # Independent perturbation per parameter
+        perturb_factors = np.random.uniform(1 - perturbation, 1 + perturbation, size=base_values.shape)
+        perturbed = base_values * perturb_factors
+
+        if np.isfinite(posterior(perturbed)):
+            samples.append(perturbed)
         attempts += 1
 
-    if len(samples) < num_samples:
-        raise RuntimeError(f"Could not generate {num_samples} valid initial guesses for window {idx}.")
+    if len(samples) < num_samples and attempts == max_attempts:
+        raise RuntimeError(f"Could not generate enough valid initial guesses for window {idx} after {attempts} attempts.")
 
     return samples
+
+import numpy as np
+
+def get_initial_guesses_near_base(idx, posterior, prior, base_values, n_chains=MCMC_SETTINGS['chains'], 
+                                  perturbation=0.2, max_attempts=1000):
+    """
+    Combo of above two functions to find initial positions for chains where base values don't automatically work.:
+    1. Try base_values first.
+    2. If invalid, find closest valid sample from prior.
+    3. Perturb valid starting point to generate n_chains valid samples.
+    """
+    base_values = np.asarray(base_values)
+    attempts = 0
+    samples = []
+
+    # Step 1: Try base values
+    if np.isfinite(posterior(base_values)):
+        seed = base_values
+    else:
+        print(f"Base values for window {idx} are invalid. Searching prior for valid alternative...")
+        # Step 2: Search prior for closest valid sample
+        best_sample = None
+        best_distance = np.inf
+
+        while attempts < max_attempts:
+            sample = prior.sample().flatten()
+            if np.isfinite(posterior(sample)):
+                dist = np.linalg.norm(sample - base_values)
+                if dist < best_distance:
+                    best_sample = sample
+                    best_distance = dist
+                    if dist == 0:
+                        break  # Exact match
+            attempts += 1
+
+        if best_sample is None:
+            raise ValueError(f"Could not find valid sample near base values from prior for window {idx}.")
+        else:
+            print(f"Using closest valid sample from prior (distance={best_distance:.4f})")
+            seed = best_sample
+
+    # Step 3: Perturb seed to generate valid initial guesses
+    samples.append(seed)
+    attempts = 0
+    while len(samples) < n_chains and attempts < max_attempts:
+        perturb_factors = np.random.uniform(1 - perturbation, 1 + perturbation, size=seed.shape)
+        perturbed = seed * perturb_factors
+        if np.isfinite(posterior(perturbed)):
+            samples.append(perturbed)
+        attempts += 1
+
+    if len(samples) < n_chains:
+        raise RuntimeError(f"Could not generate {n_chains} valid initial guesses for window {idx} after {attempts} attempts.")
+
+    return samples
+
+def get_restart_samples(idx, n_chains):
+    """
+    Starting values are the final positions of existing MCMC chains for a given window index.
+    """
+    # Load the existing chains
+    files = sorted(glob.glob(f'/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/chains/{restart_dir}/{restart_fname}*_{idx}_*.csv'))
+
+    M_org1_chains = load_samples(files[0])
+    D1_chains     = load_samples(files[1])
+    N1_chains     = load_samples(files[2])
+    D2_chains     = load_samples(files[3])
+    N2_chains     = load_samples(files[4])
+
+    x0 = [M_org1_chains[:,-1],D1_chains[:,-1],N1_chains[:,-1],D2_chains[:,-1],N2_chains[:,-1]]
+    x0_reshaped = np.stack(x0,axis=0).T
+    x0_list = [row for row in x0_reshaped]
+
+    return x0_list

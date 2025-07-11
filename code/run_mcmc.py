@@ -8,7 +8,7 @@
 from models import CCNmodel_m2
 from likelihoods import KnownSigmaGaussianLogLikelihood
 from priors import joint_CauchyPrior
-from config import get_Extra, load_data, get_initial_samples, save_chain_results, MCMC_SETTINGS
+from config import get_Extra, load_data, get_restart_samples, get_initial_guesses_near_base, save_chain_results, MCMC_SETTINGS
 import pints
 import numpy as np
 import pdb
@@ -16,8 +16,7 @@ import pdb
 def run_mcmc_for_CCNwindow(idx):
 
     try:
-        print(f"Running MCMC for CCN window {idx}...")
-    
+        
         # get data for the i-th window:
         Extra = get_Extra(idx)
         model_data, initial_guesses, prior_params, response = load_data(idx)
@@ -32,7 +31,14 @@ def run_mcmc_for_CCNwindow(idx):
             prior
         )
 
-        x0 = get_initial_samples(idx, log_posterior, np.array(initial_guesses), MCMC_SETTINGS['chains'])
+        if MCMC_SETTINGS['restart']:
+            print(f"Restarting MCMC for CCN window {idx} from existing chains...")
+            x0 = get_restart_samples(idx, MCMC_SETTINGS['chains'])
+            
+        if MCMC_SETTINGS['restart'] == False:
+            print(f"Running MCMC for CCN window {idx}...")
+            x0 = get_initial_guesses_near_base(idx, log_posterior, prior, np.array(initial_guesses), n_chains=MCMC_SETTINGS['chains'])
+ 
 
         # setup optimisation controller:
         #transform = pints.LogTransformation(n_parameters=m.n_parameters()) # use to sample in log space
