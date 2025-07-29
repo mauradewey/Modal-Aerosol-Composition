@@ -23,7 +23,9 @@ def run_mcmc_for_CCNwindow(idx):
 
         # setup model:
         m = CCNmodel_m2(Extra, model_data)
-        prior = joint_CauchyPrior(prior_params)
+
+        # setup priors:
+        prior = joint_CauchyPrior(prior_params, initial_guesses[0])  # M_org1_initial_guess is the first element of initial_guesses
 
         # setup posterior:
         log_posterior = pints.LogPosterior(
@@ -31,6 +33,7 @@ def run_mcmc_for_CCNwindow(idx):
             prior
         )
 
+        # get starting parameter values:
         if MCMC_SETTINGS['restart']:
             print(f"Restarting MCMC for CCN window {idx} from existing chains...")
             x0 = get_restart_samples(idx, MCMC_SETTINGS['chains'])
@@ -40,12 +43,18 @@ def run_mcmc_for_CCNwindow(idx):
             x0 = get_initial_guesses_near_base(idx, log_posterior, prior, np.array(initial_guesses), n_chains=MCMC_SETTINGS['chains'])
  
 
-        # setup optimisation controller:
-        #transform = pints.LogTransformation(n_parameters=m.n_parameters()) # use to sample in log space
-        mcmc = pints.MCMCController(log_posterior, MCMC_SETTINGS['chains'], x0, method=pints.DreamMCMC)#, transformation=transform)
+        # setup parameter transformation:
+        #log_transform = pints.LogTransformation(n_parameters=1) # use to sample in log space
+        #id_transform = pints.IdentityTransformation(n_parameters=4) # use to sample in default space
+        #transform = pints.ComposedTransformation(log_transform, id_transform) #only log-transform the first parameter (M_org1)
+        transform = pints.LogTransformation(n_parameters=5)
+
+        # setup MCMC controller:
+        mcmc = pints.MCMCController(log_posterior, MCMC_SETTINGS['chains'], x0, method=pints.DreamMCMC, transformation=transform)
         mcmc.set_initial_phase_iterations(MCMC_SETTINGS['burn_in'])
         mcmc.set_max_iterations(MCMC_SETTINGS['max_iterations'])
         mcmc.set_log_to_screen(False)
+        mcmc.sampler().set_nCR(5)
 
         # run MCMC:
         samples = mcmc.run()

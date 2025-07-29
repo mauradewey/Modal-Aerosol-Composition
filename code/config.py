@@ -13,16 +13,16 @@ import glob
 
 input_dir = '/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/input_data/' #input data
 output_dir = '/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/chains/' #print chains here
-restart_dir = 'm2_30k_5chains' #folder with existing chains to restart from
 
-base_fname = '30k_m2_restarts'  # Base filename for saving MCMC results
-restart_fname = 'mcmc_30k_m2_5chains_5chains'  # Base filename for restarting MCMC
+base_fname = '40k_m2_logparams'  # Base filename for saving MCMC results
+
+restart_dir = 'm2_40k_logparams' #folder with existing chains to restart from
 
 MCMC_SETTINGS = {
-'max_iterations': 30000,  # Maximum number of MCMC iterations
-'burn_in': 0,     # Number of burn-in iterations
+'max_iterations': 40000,  # Maximum number of MCMC iterations
+'burn_in': 15000,     # Number of initial phase iterations
 'chains': 5,         # Number of MCMC chains
-'restart': True,  # Whether to restart from existing chains
+'restart': False,  # Whether to restart from existing chains
 }
 
 
@@ -31,10 +31,10 @@ def load_data(idx):
     Create data structures for the MCMC run, given window index.
 
     Data files::
-        - 'ccn_obs': CCN observations (number concentration at 5 super saturation ratios)
-        - 'M_org1_initial': Initial guesses fraction of organics in Aitken mode.
-        - 'bimodal_params': Initial guesses and ranges for bimodal parameters  (fitted to aerosol obs within each window)
-        - 'median_mass': total aerosol mass calculated from median of the fitted bimodal parameters
+        - 'CCN': CCN observations (number concentration at 5 super saturation ratios)
+        - 'M_org1_initialguess': Initial guesses fraction of organics in Aitken mode.
+        - 'bimodal_params_windows_iqr': Initial guesses and ranges for bimodal parameters  (fitted to aerosol obs within each window)
+        - 'mass': total aerosol mass calculated from median of the fitted bimodal parameters
         - 'mass_range': range of total aerosol mass calculated from the fitted bimodal parameters
         - 'dp_dry': dry diameters of the particles
         - 'comp_obs': observed total mass and ACSM mass fractions
@@ -48,33 +48,33 @@ def load_data(idx):
 
     # load data:
     response = pd.read_csv(os.path.join(input_dir, 'CCN.csv'), header=None, skiprows=idx+1, nrows=1).drop(columns=0).values[0]
-    M_org1_initial = pd.read_csv(os.path.join(input_dir, 'M_org1_initialguess.csv'),header=None, skiprows=idx+1, nrows=1).squeeze()
-    bimodal_params = pd.read_csv(os.path.join(input_dir, 'bimodal_params_medians.csv'),header=None, skiprows=idx+1, nrows=1).drop(columns=0).values[0]
-    mass = pd.read_csv(os.path.join(input_dir, 'total_mass_median_NSDparams.csv'), header=None, skiprows=idx+1, nrows=1).drop(columns=0).squeeze()
-    mass_range = pd.read_csv(os.path.join(input_dir, 'mass_highres_range.csv'), header=None, skiprows=10+1, nrows=1).drop(columns=2).values[0]
+    M_org1_initial = pd.read_csv(os.path.join(input_dir, 'M_org1_initialguess.csv'), skiprows=lambda x: x != 0 and x != idx+1, nrows=1)
+    bimodal_params = pd.read_csv(os.path.join(input_dir, 'bimodal_params_windows_iqr.csv'), skiprows=lambda x: x != 0 and x != idx+1, nrows=1)
+    mass = pd.read_csv(os.path.join(input_dir, 'total_mass_median_NSDparams.csv'), skiprows=lambda x: x != 0 and x != idx+1, nrows=1)
+    mass_range = pd.read_csv(os.path.join(input_dir, 'mass_highres_range.csv'), skiprows=lambda x: x != 0 and x != idx+1, nrows=1)
     
-    initial_guesses = [M_org1_initial, # fraction of organics in Aitken mode
-        bimodal_params[1], # mode1_d median
-        bimodal_params[7], # NSD1_sum median
-        bimodal_params[4], # mode2_d median
-        bimodal_params[8],  # NSD2_sum median
-    ] 
+    initial_guesses = [M_org1_initial['M_org1'].values[0], # fraction of organics in Aitken mode
+        bimodal_params['mode1_d'].values[0], # mode1_d median
+        bimodal_params['NSD1_sum'].values[0], # NSD1_sum median
+        bimodal_params['mode2_d'].values[0], # mode2_d median
+        bimodal_params['NSD2_sum'].values[0],  # NSD2_sum median
+    ]
     
     model_inputs = [
-        bimodal_params[2], # mode1_sigma
-        bimodal_params[5], # mode2_sigma
-        mass[1], # total aerosol mass (calculated with median of fitted bimodal parameters)
-        mass_range[0], # min total aerosol mass (calculated with fitted bimodal parameters)
-        mass_range[1], # max total aerosol mass (calculated with fitted bimodal parameters)
-        mass[2], # aitken mass median (calculated with median of fitted bimodal parameters)
-        mass[3], # accumulation mass median (calculated with median of fitted bimodal parameters)
+        bimodal_params['mode1_sigma'].values[0], # mode1_sigma
+        bimodal_params['mode2_sigma'].values[0], # mode2_sigma
+        mass['total_mass'].values[0], # total aerosol mass (calculated with median of fitted bimodal parameters)
+        mass_range['min mass (ug/m3)'].values[0], # min total aerosol mass (calculated with fitted bimodal parameters)
+        mass_range['max mass (ug/m3)'].values[0], # max total aerosol mass (calculated with fitted bimodal parameters)
+        mass['aitken_mass'].values[0], # aitken mass median (calculated with median of fitted bimodal parameters)
+        mass['accum_mass'].values[0], # accumulation mass median (calculated with median of fitted bimodal parameters)
     ]
 
-    prior_params = {'medians': [bimodal_params[1], bimodal_params[7], bimodal_params[4], bimodal_params[8]],
-                    'mad': [bimodal_params[9], bimodal_params[15], bimodal_params[12], bimodal_params[16]],}
-    #                'min': [bimodal_params[10], bimodal_params[16], bimodal_params[13], bimodal_params[19]],
-    #                'max': [bimodal_params[9], bimodal_params[15], bimodal_params[12], bimodal_params[18]],
-    #}
+    prior_params = {'medians': [bimodal_params['mode1_d'].values[0], bimodal_params['NSD1_sum'].values[0], bimodal_params['mode2_d'].values[0], bimodal_params['NSD2_sum'].values[0]],
+        'mad': [bimodal_params['mode1_d_mad'].values[0], bimodal_params['NSD1_sum_mad'].values[0], bimodal_params['mode2_d_mad'].values[0], bimodal_params['NSD2_sum_mad'].values[0]],
+        'min': [bimodal_params['mode1_d_min'].values[0], bimodal_params['NSD1_sum_min'].values[0], bimodal_params['mode2_d_min'].values[0], bimodal_params['NSD2_sum_min'].values[0]],
+        'max': [bimodal_params['mode1_d_max'].values, bimodal_params['NSD1_sum_max'].values, bimodal_params['mode2_d_max'].values, bimodal_params['NSD2_sum_max'].values],
+    }
 
     return model_inputs, initial_guesses, prior_params, response
 
@@ -193,7 +193,7 @@ def get_initial_guesses_near_base(idx, posterior, prior, base_values, n_chains=M
     2. If invalid, find closest valid sample from prior.
     3. Perturb valid starting point to generate n_chains valid samples.
     """
-    base_values = np.asarray(base_values)
+    base_values = np.asarray(np.round(base_values,2))
     attempts = 0
     samples = []
 
@@ -243,7 +243,7 @@ def get_restart_samples(idx, n_chains):
     Starting values are the final positions of existing MCMC chains for a given window index.
     """
     # Load the existing chains
-    files = sorted(glob.glob(f'/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/chains/{restart_dir}/{restart_fname}*_{idx}_*.csv'))
+    files = sorted(glob.glob(f'/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/chains/{restart_dir}/*_{idx}_*.csv'))
 
     M_org1_chains = load_samples(files[0])
     D1_chains     = load_samples(files[1])

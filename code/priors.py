@@ -14,8 +14,9 @@
 import pints
 import numpy as np
 
-# fraction of organics in Aitken mode (M_org1) always has a half-Cauchy prior:
-M_org1_prior = pints.HalfCauchyLogPrior(0,0.08)
+
+# A uniform prior for M_org1
+M_org1_uniform = pints.UniformLogPrior(0, 10.0)  # Uniform prior for M_org1
 
 # priors for bimodal parameters (D1, N1, D2, N2):
 def joint_GaussianPrior(prior_params):
@@ -33,24 +34,25 @@ def joint_GaussianPrior(prior_params):
     return pints.ComposedLogPrior(M_org1_prior, *priors)
 
 
-def joint_CauchyPrior(prior_params):
+def joint_CauchyPrior(prior_params, Morg1_initial_guess):
     """
     Args:
         prior_params (dict): Dictionary containing the median and MAD of the NSD parameter values, so the priors are centered
-        on the initial guesses. Scale is set to the median absolute deviation.
+        on the initial guesses. Scale is set to the minimum of 1 or the median absolute deviation.
     """
     # unpack:
-    medians = prior_params['medians']
-    mad = prior_params['mad']
+    medians = np.round(prior_params['medians'],2)
+    mad = np.round(prior_params['mad'],2)
 
     # Create a Cauchy log prior for each parameter which is truncated to be positive:
-    priors = [pints.HalfCauchyLogPrior(medians[i], mad[i]) for i in range(len(medians))]
+    M_org1_prior = M_org1_prior = pints.HalfCauchyLogPrior(np.round(Morg1_initial_guess,2), 0.5) 
+    priors = [pints.HalfCauchyLogPrior(medians[i], min(1, mad[i])) for i in range(len(medians))]
     
     # Combine into a single log-prior
     return pints.ComposedLogPrior(M_org1_prior, *priors)
 
 
-def joint_UniformPrior(prior_params):
+def joint_AllUniformPrior(prior_params):
     """
     Args:
         prior_params (dict): Dictionary containing the min and max of the NSD parameter values, so the priors are centered
@@ -61,10 +63,10 @@ def joint_UniformPrior(prior_params):
     max_vals = prior_params['max']
 
     # Create a Uniform log prior for each parameter
-    priors = [pints.UniformLogPrior(min_vals[i], max_vals[i]) for i in range(len(min_vals))]
+    priors = [pints.UniformLogPrior(max(min_vals[i]-10,0), max_vals[i]+10) for i in range(len(min_vals))]
     
     # Combine into a single log-prior
-    return pints.ComposedLogPrior(M_org1_prior, *priors)
+    return pints.ComposedLogPrior(M_org1_uniform, *priors)
 
 
 def joint_SigmaPrior(param_prior, response):
@@ -83,3 +85,38 @@ def joint_SigmaPrior(param_prior, response):
     # Combine into a single log-prior
     return pints.ComposedLogPrior(param_prior, sigma_prior)
 
+def joint_UniformMorgCauchyPrior(prior_params):
+    """
+    Uniform prior for M_org1 and Cauchy priors for bimodal parameters (D1, N1, D2, N2).
+    Args:
+        prior_params (dict): Dictionary containing the median and MAD of the NSD parameter values, so the priors are centered
+        on the initial guesses. Scale is set to the median absolute deviation.
+    """
+    # unpack:
+    medians = prior_params['medians']
+    mad = prior_params['mad']
+
+    # Create a Cauchy log prior for each parameter which is truncated to be positive:
+    priors = [pints.HalfCauchyLogPrior(medians[i], mad[i]) for i in range(len(medians))]
+
+    
+    # Combine into a single log-prior
+    return pints.ComposedLogPrior(M_org1_uniform, *priors)
+
+def joint_TruncatedGaussianPrior(prior_params):
+    """
+    Args:
+        prior_params (dict): Dictionary containing the median and MAD of the NSD parameter values, so the priors are centered
+        on the initial guesses. Scale is set to the median absolute deviation.
+    """
+    # unpack:
+    medians = prior_params['medians']
+    mad = prior_params['mad']
+    min = prior_params['min']
+    max = prior_params['max']
+
+    # Create a truncated Gaussian log prior for each parameter which is truncated to be positive:
+    priors = [pints.TruncatedGaussianLogPrior(medians[i], mad[i], max(0, min[i]), max[i]) for i in range(len(medians))]
+
+    # Combine into a single log-prior
+    return pints.ComposedLogPrior(M_org1_prior, *priors)

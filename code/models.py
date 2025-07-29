@@ -169,8 +169,8 @@ class CCNmodel_m2(pints.ForwardModel):
 
         # Ensure mass is non-negative and within tolerance
         if(
-        (0.99 * self.ait_mass < total_ait_mass < 1.01 * self.ait_mass) and
-        (0.99 * self.acc_mass < total_acc_mass < 1.01 * self.acc_mass) and
+        (0.9 * self.ait_mass < total_ait_mass < 1.1 * self.ait_mass) and
+        (0.9 * self.acc_mass < total_acc_mass < 1.1 * self.acc_mass) and
         M_org2 >= 0 and M_AS2 >= 0 and M_AS1 >= 0 and M_org1 >= 0
         ):
             
