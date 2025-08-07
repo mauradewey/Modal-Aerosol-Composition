@@ -173,7 +173,7 @@ class CCNmodel_m2(pints.ForwardModel):
         (0.9 * self.acc_mass < total_acc_mass < 1.1 * self.acc_mass) and
         M_org2 >= 0 and M_AS2 >= 0 and M_AS1 >= 0 and M_org1 >= 0
         ):
-            
+             
         # If within tolerance, continue:
             f_org1 = M_org1 / total_ait_mass
             f_AS1 = M_AS1 / total_ait_mass

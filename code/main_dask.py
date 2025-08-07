@@ -8,6 +8,7 @@ from dask import delayed, compute
 from dask.distributed import Client
 from run_mcmc import run_mcmc_for_CCNwindow
 import warnings
+import pickle
 
 warnings.simplefilter('always')  # Log all warnings
 
@@ -17,9 +18,11 @@ def main():
     print('Initialized Dask cluster with 32 workers.')
 
     # Number of CCN windows:
-    #num_windows = 1000
-
-    tasks = [delayed(run_mcmc_for_CCNwindow)(i) for i in range(6580)] 
+    #num_windows = 3000
+    with open('/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/results/not_convergedbelow3_m2_40k_logparams.pickle', 'rb') as f:
+        missing_windows = pickle.load(f)
+   
+    tasks = [delayed(run_mcmc_for_CCNwindow)(i) for i in missing_windows[400:600]] 
 
     # Compute the results in parallel
     compute(*tasks, scheduler='distributed')

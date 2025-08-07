@@ -20,12 +20,12 @@ sample_len: number of samples at the end of the chains to use for statistics.
 
 def main(chain_folder, output_file, sample_len):
 
-    bimodal_params = pd.read_csv('/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/input_data/bimodal_params_windows.csv') 
+    bimodal_params = pd.read_csv('/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/input_data/bimodal_params_windows_iqr.csv') 
     mcmc_params = pd.DataFrame({'datetime': bimodal_params['datetime']})
     missing_windows = []
 
     # Loop over CCN obs windows:
-    for ii in range(len(mcmc_params)):
+    for ii in [17]: #range(len(mcmc_params)):
         try:
 
             # 1. Get chains for this window:
@@ -43,14 +43,14 @@ def main(chain_folder, output_file, sample_len):
             N2_chains     = pints.io.load_samples(files[4])
 
             # 3. Check R-hat convergence:          
-            rhat_cutoff = sample_len/len(M_org1_chains[0]) # calculate rhat cutoff based on how many iterations we want to use for statistics (usually 0.5)
+            rhat_cutoff = sample_len/len(M_org1_chains[0]) # calculate rhat cutoff based on how many iterations we want to use for statistics (usually cut_off=0.5)
             all_chains = np.stack([M_org1_chains, D1_chains, N1_chains, D2_chains, N2_chains], axis=2)
 
             # if all chains have converged, use them all for statistics:
             if all(pints.rhat(all_chains, rhat_cutoff)<1.5):
                 good_chains_idx = list(range(all_chains.shape[0]))
 
-            # else, we need to check for outliers:
+            # else, check for outliers:
             else:
                 # detect outlier chains in the last sample_len samples:
                 bad_chains = detect_outlier_chains(all_chains[:, -sample_len:, :], z_thresh=1.5)
@@ -72,6 +72,8 @@ def main(chain_folder, output_file, sample_len):
                 'N2': N2_chains,
             }
 
+            print(good_chains_idx)
+
             for param, chains in param_dict.items():
                 rhat_val = pints.rhat(chains[good_chains_idx,:], rhat_cutoff)
                 samples = chains[good_chains_idx, -sample_len:] #use last sample_len samples in good chains to calculate statistics
@@ -81,9 +83,11 @@ def main(chain_folder, output_file, sample_len):
                 mcmc_params.at[ii, f'{param}_mode']    = mode(samples,axis=None)[0]
                 mcmc_params.at[ii, f'{param}_std']    = np.std(samples)
                 mcmc_params.at[ii, f'{param}_rhat']   = rhat_val
-                mcmc_params.at[ii, f'{param}_25']     = np.percentile(samples, 2.5)
-                mcmc_params.at[ii, f'{param}_975']    = np.percentile(samples, 97.5)
+                mcmc_params.at[ii, f'{param}_25']     = np.percentile(samples, 25)
+                mcmc_params.at[ii, f'{param}_75']    = np.percentile(samples, 75)
                 mcmc_params.at[ii, f'{param}_skew']   = skew(samples, axis=None)
+                mcmc_params.at[ii, f'{param}_mad']    = np.median(np.abs(samples - np.median(samples)))
+                mcmc_params.at[ii, f'{param}_n_chains'] = len(good_chains_idx)
 
 
         except Exception as e:

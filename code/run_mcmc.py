@@ -30,7 +30,7 @@ def run_mcmc_for_CCNwindow(idx):
         # setup posterior:
         log_posterior = pints.LogPosterior(
             KnownSigmaGaussianLogLikelihood(m, response),
-            prior
+            prior 
         )
 
         # get starting parameter values:

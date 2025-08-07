@@ -14,7 +14,7 @@ import glob
 input_dir = '/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/input_data/' #input data
 output_dir = '/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/chains/' #print chains here
 
-base_fname = '40k_m2_logparams'  # Base filename for saving MCMC results
+base_fname = '40k_m2_logparams_testuniprior'  # Base filename for saving MCMC results
 
 restart_dir = 'm2_40k_logparams' #folder with existing chains to restart from
 
@@ -186,42 +186,53 @@ def get_initial_samples(idx, posterior, base_values, num_samples, perturbation=0
 import numpy as np
 
 def get_initial_guesses_near_base(idx, posterior, prior, base_values, n_chains=MCMC_SETTINGS['chains'], 
-                                  perturbation=0.2, max_attempts=1000):
+                                  perturbation=0.2, max_attempts=100000):
     """
     Combo of above two functions to find initial positions for chains where base values don't automatically work.:
     1. Try base_values first.
     2. If invalid, find closest valid sample from prior.
     3. Perturb valid starting point to generate n_chains valid samples.
     """
-    base_values = np.asarray(np.round(base_values,2))
+    base_values = np.asarray(base_values)
+    # make sure base_values are non-zero:
+    if any(base_values <= 0):
+        raise ValueError(f"Base values for window {idx} must be positive.")
     attempts = 0
     samples = []
 
     # Step 1: Try base values
     if np.isfinite(posterior(base_values)):
         seed = base_values
+        print(f"Using base values for window {idx}.")
+
     else:
         print(f"Base values for window {idx} are invalid. Searching prior for valid alternative...")
-        # Step 2: Search prior for closest valid sample
-        best_sample = None
-        best_distance = np.inf
+        # try rounding base values to 2 decimal places:
+        base_values = np.round(base_values, 2)
+        if np.isfinite(posterior(base_values)):
+            seed = base_values
+            
+        else:    
+            # Step 2: Search prior for closest valid sample
+            best_sample = None
+            best_distance = np.inf
 
-        while attempts < max_attempts:
-            sample = prior.sample().flatten()
-            if np.isfinite(posterior(sample)):
-                dist = np.linalg.norm(sample - base_values)
-                if dist < best_distance:
-                    best_sample = sample
-                    best_distance = dist
-                    if dist == 0:
-                        break  # Exact match
-            attempts += 1
+            while attempts < max_attempts:
+                sample = prior.sample().flatten()
+                if np.isfinite(posterior(sample)):
+                    dist = np.linalg.norm(sample - base_values)
+                    if dist < best_distance:
+                        best_sample = sample
+                        best_distance = dist
+                        if dist == 0:
+                            break  # Exact match
+                attempts += 1
 
-        if best_sample is None:
-            raise ValueError(f"Could not find valid sample near base values from prior for window {idx}.")
-        else:
-            print(f"Using closest valid sample from prior (distance={best_distance:.4f})")
-            seed = best_sample
+            if best_sample is None:
+                raise ValueError(f"Could not find valid sample near base values from prior for window {idx}.")
+            else:
+                print(f"Using closest valid sample from prior (distance={best_distance:.4f})")
+                seed = best_sample
 
     # Step 3: Perturb seed to generate valid initial guesses
     samples.append(seed)

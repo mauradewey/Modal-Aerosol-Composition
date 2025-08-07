@@ -41,11 +41,11 @@ def joint_CauchyPrior(prior_params, Morg1_initial_guess):
         on the initial guesses. Scale is set to the minimum of 1 or the median absolute deviation.
     """
     # unpack:
-    medians = np.round(prior_params['medians'],2)
-    mad = np.round(prior_params['mad'],2)
+    medians = np.round(prior_params['medians'],4)
+    mad = np.round(prior_params['mad'],4)
 
     # Create a Cauchy log prior for each parameter which is truncated to be positive:
-    M_org1_prior = M_org1_prior = pints.HalfCauchyLogPrior(np.round(Morg1_initial_guess,2), 0.5) 
+    M_org1_prior = pints.HalfCauchyLogPrior(np.round(Morg1_initial_guess,4), 0.5) 
     priors = [pints.HalfCauchyLogPrior(medians[i], min(1, mad[i])) for i in range(len(medians))]
     
     # Combine into a single log-prior
@@ -93,12 +93,11 @@ def joint_UniformMorgCauchyPrior(prior_params):
         on the initial guesses. Scale is set to the median absolute deviation.
     """
     # unpack:
-    medians = prior_params['medians']
-    mad = prior_params['mad']
+    medians = np.round(prior_params['medians'],4)
+    mad = np.round(prior_params['mad'],4)
 
     # Create a Cauchy log prior for each parameter which is truncated to be positive:
-    priors = [pints.HalfCauchyLogPrior(medians[i], mad[i]) for i in range(len(medians))]
-
+    priors = [pints.HalfCauchyLogPrior(medians[i], min(1, mad[i])) for i in range(len(medians))]
     
     # Combine into a single log-prior
     return pints.ComposedLogPrior(M_org1_uniform, *priors)
