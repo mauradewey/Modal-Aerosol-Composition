@@ -5,7 +5,7 @@
 # (maps optimization parameters -> output; M_org1 + D1 + N1 + D2 + N2 -> total CCN at 5 supersaturations)
 # There are two versions, based on the mass conservation approach:
 #       CCNmodel_m1 requires the total particle mass to be within 10% of the median mass calculated with the median fitted NSD parameters.
-#       CCNmodel_m2 requires the total particle mass to be in between the minimum and maximum mass calculated at each set of fitted parameters within the window. 
+#       CCNmodel_m2 requires the total particle mass for each mode to be within 10% of the median mass for each mode calculated with the median fitted NSD parameters. 
 # CCN model specific functions are imported from inv_ccn_utils.py.
 
 import pints
@@ -29,9 +29,9 @@ class CCNmodel_m1(pints.ForwardModel):
         # Define the return_all flag: True, return all outputs (CCN, k_org, k_inorg, mass fractions, total masses). False, return only the total CCN (default for optimization)
         self.return_all = return_all
 
-    
+      
     def __call__(self, params):
-        # unpack optimization parameters:
+        
         M_org1 = params[0]  # Mass of organics in Aitken mode (optimization parameter)
         D1 = params[1]  # Median diameter of Aitken mode (optimization parameter)
         N1 = params[2]  # Median number concentration of Aitken mode (optimization parameter)
@@ -120,8 +120,8 @@ class CCNmodel_m2(pints.ForwardModel):
         self.Extra = Extra # Extra is a dictionary containing all constant parameters for the CCN closure calculation     
         self.GSD1 = model_data[0] # geometric standard deviation for mode 1
         self.GSD2 = model_data[1] # geometric standard deviation for mode 2
-        self.min_mass = model_data[3] # minimum mass for optimization
-        self.max_mass = model_data[4] # maximum mass for optimization
+        self.ait_mass = model_data[5] # aitken mass 
+        self.acc_mass = model_data[6] # accumulation mass
 
         # Define the return_all flag: True, return all outputs (CCN, k_org, k_inorg, mass fractions, total masses). False, return only the total CCN (default for optimization)
         self.return_all = return_all
@@ -169,10 +169,11 @@ class CCNmodel_m2(pints.ForwardModel):
 
         # Ensure mass is non-negative and within tolerance
         if(
-        (self.min_mass < total_mass < self.max_mass) and
+        (0.9 * self.ait_mass < total_ait_mass < 1.1 * self.ait_mass) and
+        (0.9 * self.acc_mass < total_acc_mass < 1.1 * self.acc_mass) and
         M_org2 >= 0 and M_AS2 >= 0 and M_AS1 >= 0 and M_org1 >= 0
         ):
-            
+             
         # If within tolerance, continue:
             f_org1 = M_org1 / total_ait_mass
             f_AS1 = M_AS1 / total_ait_mass

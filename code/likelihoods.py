@@ -1,4 +1,4 @@
-
+         
 # likelihoods.py
 
 # This file contains the likelihood functions for the CCN closure model.
@@ -14,10 +14,14 @@ class KnownSigmaGaussianLogLikelihood(pints.LogPDF):
     def __init__(self, model, observed_data):
         """
         Custom Gaussian log-likelihood with known measurement noise (sigma).
-
-        Argss:
+        Here sigma is set to 10% of the observed data.
+        
+        Based on PINTS implementation:
+        https://pints.readthedocs.io/en/stable/_modules/pints/_log_likelihoods.html#GaussianKnownSigmaLogLikelihood
+    
+        Args:
         - model: A callable forward model.
-        - observed_data: Observed dataset (numpy array).
+        - observed_data: Observations (numpy array).
         """
         
         self.model = model
@@ -120,3 +124,6 @@ class GaussianLogLikelihood(pints.LogPDF):
     def n_parameters(self):
         """Return the number of parameters expected (including one sigma per output)."""
         return self.n_total_parameters
+    
+
+    
