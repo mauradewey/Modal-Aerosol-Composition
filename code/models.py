@@ -203,3 +203,130 @@ class CCNmodel_m2(pints.ForwardModel):
     
     def n_outputs(self):
         return self._n_outputs
+    
+
+class CCNmodel_m3(pints.ForwardModel):
+    # Calculate CCN, given kappa and density of the organic fraction as optimized parameters.
+    # Size distribution parameters are fixed at median observed values.
+
+    def __init__(self, Extra, model_data, return_all=False):
+        # Define the number of parameters and outputs:
+        self._n_parameters = 2  # Number of optimization parameters
+        self._n_outputs = 5 #number of outputs (CCN at 5 supersaturations)
+
+        # Get pre-calculated/not-optimized parameters:
+        self.Extra = Extra # Extra is a dictionary containing all constant parameters for the CCN closure calculation     
+        self.NSD1 = model_data[0] # NSD vector for mode 1
+        self.NSD2 = model_data[1] # NSD vector for mode 2
+
+        # Define the return_all flag: True, return all outputs (CCN, k_org, k_inorg, mass fractions, total masses). False, return only the total CCN (default for optimization)
+        self.return_all = return_all
+
+    
+    def __call__(self, params):
+        # unpack optimization parameters:
+        k_org = params[0]  # Kappa for organics (optimization parameter)
+        rho_org = params[1]  # Density of organics (optimization parameter)
+
+        # calculate the mass of the particles in both modes:
+        info_mass = cal_mass_m3(self.Extra['dp'], self.Extra['true_inputs'], self.Extra, self.NSD1, self.NSD2, rho_org)
+
+        # Mass fractions:
+        f_BC1 = info_mass['M_BC1']/ info_mass['tot_mass_mode1'] 
+        f_BC2 = info_mass['M_BC2'] / info_mass['tot_mass_mode2'] 
+        f_org1 = info_mass['M_org1'] / info_mass['tot_mass_mode1'] 
+        f_AS1 = (info_mass['tot_AS1'] + info_mass['tot_AN1']) / info_mass['tot_mass_mode1']
+        f_org2 = info_mass['M_org2'] / info_mass['tot_mass_mode2']
+        f_AS2 = (info_mass['tot_AS2'] + info_mass['tot_AN2']) / info_mass['tot_mass_mode2']
+
+        mass_frac_aitken = [f_org1, 1, f_AS1, 0, f_BC1] # sequence is organics, total mass fraction, inorganics, nitrate, eBC
+        mass_frac_accumulation = [f_org2, 1, f_AS2, 0, f_BC2]
+
+        # calculate CCN, k_org, k_inorg for both modes:
+        ccn1, k1, k_inorg1 = execute_test_run_m3(mass_frac_aitken, self.Extra, self.NSD1, k_org, rho_org)
+        ccn2, k2, k_inorg2 = execute_test_run_m3(mass_frac_accumulation, self.Extra, self.NSD2, k_org, rho_org)
+
+        total_ait_mass = info_mass['tot_mass_mode1']
+        total_acc_mass = info_mass['tot_mass_mode2']
+        total_mass = info_mass['total_mass']
+
+        # return CCN total:
+        if self.return_all:
+            return ccn1, ccn2, k1, k2, k_inorg1, k_inorg2, mass_frac_aitken, mass_frac_accumulation, total_ait_mass, total_acc_mass, total_mass, info_mass, self.NSD1, self.NSD2
+        else:
+                return ccn1+ccn2
+        
+    
+    def n_parameters(self):
+        return self._n_parameters
+    
+    def n_outputs(self):
+        return self._n_outputs
+    
+
+class CCNmodel_m4(pints.ForwardModel):
+    # Calculate CCN, given kappa and density of the organic fraction, and the size distribution N,D as optimized parameters.
+
+    def __init__(self, Extra, model_data, return_all=False):
+        # Define the number of parameters and outputs:
+        self._n_parameters = 6  # Number of optimization parameters
+        self._n_outputs = 5 #number of outputs (CCN at 5 supersaturations)
+
+        # Get pre-calculated/not-optimized parameters:
+        self.Extra = Extra # Extra is a dictionary containing all constant parameters for the CCN closure calculation     
+        self.GSD1 = model_data[0] # geometric standard deviation for mode 1
+        self.GSD2 = model_data[1] # geometric standard deviation for mode 2
+
+        # Define the return_all flag: True, return all outputs (CCN, k_org, k_inorg, mass fractions, total masses). False, return only the total CCN (default for optimization)
+        self.return_all = return_all
+
+    
+    def __call__(self, params):
+        # unpack optimization parameters:
+        k_org = params[0]  # Kappa for organics (optimization parameter)
+        rho_org = params[1]  # Density of organics (optimization parameter)
+        D1 = params[2]  # Median diameter of Aitken mode (optimization parameter)
+        N1 = params[3]  # Median number concentration of Aitken mode (optimization parameter)
+        D2 = params[4]  # Median diameter of Accumulation mode (optimization parameter)
+        N2 = params[5]  # Median number concentration of Accumulation mode (optimization parameter)
+
+        # calculate size distributions:
+        NSD1 = size_distribution(np.array([[N1, self.GSD1, D1]]), self.Extra['dp']) # Aitken mode
+        NSD1_vec = NSD1[1] # Aitken mode absolute NSD
+        NSD2 = size_distribution(np.array([[N2, self.GSD2, D2]]), self.Extra['dp']) # Accumulation mode
+        NSD2_vec = NSD2[1] # Accumulation mode absolute NSD
+
+        # calculate the mass of the particles in both modes:
+        info_mass = cal_mass_m3(self.Extra['dp'], self.Extra['true_inputs'], self.Extra, NSD1_vec, NSD2_vec, rho_org)
+
+        # Mass fractions:
+        f_BC1 = info_mass['M_BC1']/ info_mass['tot_mass_mode1'] 
+        f_BC2 = info_mass['M_BC2'] / info_mass['tot_mass_mode2'] 
+        f_org1 = info_mass['M_org1'] / info_mass['tot_mass_mode1'] 
+        f_AS1 = (info_mass['tot_AS1'] + info_mass['tot_AN1']) / info_mass['tot_mass_mode1']
+        f_org2 = info_mass['M_org2'] / info_mass['tot_mass_mode2']
+        f_AS2 = (info_mass['tot_AS2'] + info_mass['tot_AN2']) / info_mass['tot_mass_mode2']
+
+        mass_frac_aitken = [f_org1, 1, f_AS1, 0, f_BC1] # sequence is organics, total mass fraction, inorganics, nitrate, eBC
+        mass_frac_accumulation = [f_org2, 1, f_AS2, 0, f_BC2]
+
+        # calculate CCN, k_org, k_inorg for both modes:
+        ccn1, k1, k_inorg1 = execute_test_run_m3(mass_frac_aitken, self.Extra, NSD1_vec, k_org, rho_org)
+        ccn2, k2, k_inorg2 = execute_test_run_m3(mass_frac_accumulation, self.Extra, NSD2_vec, k_org, rho_org)
+
+        total_ait_mass = info_mass['tot_mass_mode1']
+        total_acc_mass = info_mass['tot_mass_mode2']
+        total_mass = info_mass['total_mass']
+
+        # return CCN total:
+        if self.return_all:
+            return ccn1, ccn2, k1, k2, k_inorg1, k_inorg2, mass_frac_aitken, mass_frac_accumulation, total_ait_mass, total_acc_mass, total_mass, info_mass, NSD1_vec, NSD2_vec
+        else:
+                return ccn1+ccn2
+        
+    
+    def n_parameters(self):
+        return self._n_parameters
+    
+    def n_outputs(self):
+        return self._n_outputs

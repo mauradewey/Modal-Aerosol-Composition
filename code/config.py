@@ -14,7 +14,7 @@ import glob
 input_dir = '/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/input_data/' #input data
 output_dir = '/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/chains/' #print chains here
 
-base_fname = '40k_m2_logparams_testuniprior'  # Base filename for saving MCMC results
+base_fname = '40k_m3_orgs_only'  # Base filename for saving MCMC results
 
 restart_dir = 'm2_40k_logparams' #folder with existing chains to restart from
 
