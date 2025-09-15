@@ -13,39 +13,38 @@ import pickle
 '''
 Loop though MCMC chains and summarize the posterior distributions of parameters.
 Example usage in terminal:
-python summarize_mcmc_posteriors.py --chain_folder m2_30k_5chains --output_file summary_30k_m2_5chains --sample_len 10000
+python summarize_mcmc_posteriors.py --chain_folder m2_30k_5chains --output_file summary_30k_m2_5chains --sample_len 10000 --model_v m2
 
 sample_len: number of samples at the end of the chains to use for statistics.
 '''
 
-def main(chain_folder, output_file, sample_len):
+def main(chain_folder, output_file, sample_len, model_v):
 
     bimodal_params = pd.read_csv('/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/input_data/bimodal_params_windows_iqr.csv') 
     mcmc_params = pd.DataFrame({'datetime': bimodal_params['datetime']})
     missing_windows = []
 
     # Loop over CCN obs windows:
-    for ii in [17]: #range(len(mcmc_params)):
+    for ii in range(len(mcmc_params)):
         try:
 
             # 1. Get chains for this window:
             files = sorted(glob.glob(f'/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/chains/{chain_folder}/mcmc*_{str(ii)}_*.csv'))
 
             # if there are more than 5 files, we assume these are restarts and we use the restart files:
-            if len(files) > 5: #use restarts
-                files = sorted(glob.glob(f'/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/chains/{chain_folder}/mcmc*restarts*_{str(ii)}_*.csv'))
+            #if len(files) > 5: #use restarts
+            #    files = sorted(glob.glob(f'/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/chains/{chain_folder}/mcmc*restarts*_{str(ii)}_*.csv'))
 
             # 2. Load chains:
-            M_org1_chains = pints.io.load_samples(files[0])
-            D1_chains     = pints.io.load_samples(files[1])
-            N1_chains     = pints.io.load_samples(files[2])
-            D2_chains     = pints.io.load_samples(files[3])
-            N2_chains     = pints.io.load_samples(files[4])
+            chains = []
+            chains = [pints.io.load_samples(f) for f in files]
 
-            # 3. Check R-hat convergence:          
-            rhat_cutoff = sample_len/len(M_org1_chains[0]) # calculate rhat cutoff based on how many iterations we want to use for statistics (usually cut_off=0.5)
-            all_chains = np.stack([M_org1_chains, D1_chains, N1_chains, D2_chains, N2_chains], axis=2)
+            # Stack into one array
+            all_chains = np.stack(chains, axis=2)
 
+            # 3. Check R-hat convergence:
+            rhat_cutoff = sample_len/all_chains.shape[1] # calculate rhat cutoff based on how many iterations we want to use for statistics (usually cut_off=0.5)
+        
             # if all chains have converged, use them all for statistics:
             if all(pints.rhat(all_chains, rhat_cutoff)<1.5):
                 good_chains_idx = list(range(all_chains.shape[0]))
@@ -64,13 +63,40 @@ def main(chain_folder, output_file, sample_len):
                     good_chains_idx = list(range(all_chains.shape[0]))
                 
             # 4. Calculate and store posterior statistics using all good chains:
-            param_dict = {
-                'M_org1': M_org1_chains,
-                'D1': D1_chains,
-                'N1': N1_chains,
-                'D2': D2_chains,
-                'N2': N2_chains,
-            }
+            if model_v == 'm2':
+                param_dict = {
+                    'M_org1': all_chains[:, :, 0], # Mass of organics in Aitken mode (optimization parameter)
+                    'D1': all_chains[:, :, 1],  # Median diameter of Aitken mode (optimization parameter)
+                    'N1': all_chains[:, :, 2],  # Median number concentration of Aitken mode (optimization parameter)
+                    'D2': all_chains[:, :, 3],  # Median diameter of Accumulation mode (optimization parameter)
+                    'N2': all_chains[:, :, 4]  # Median number concentration of Accumulation mode (optimization parameter)
+                }
+
+            if model_v == 'm3':
+                param_dict = {
+                    'Rho_org': all_chains[:, :, 0], # Density of organics (optimization parameter)
+                    'Kappa_org': all_chains[:, :, 1] # Hygroscopicity of organics (optimization parameter)
+                }
+
+            if model_v == 'm4':
+                param_dict = {
+                    'Rho_org': all_chains[:, :, 0], # Density of organics (optimization parameter)
+                    'Kappa_org': all_chains[:, :, 1], # Hygroscopicity of organics (optimization parameter)
+                    'D1': all_chains[:, :, 2],  # Median diameter of Aitken mode (optimization parameter)
+                    'N1': all_chains[:, :, 3],  # Median number concentration of Aitken mode (optimization parameter)
+                    'D2': all_chains[:, :, 4],  # Median diameter of Accumulation mode (optimization parameter)
+                    'N2': all_chains[:, :, 5]  # Median number concentration of Accumulation mode (optimization parameter)
+                }
+            if model_v == 'm5':
+                param_dict = {
+                    'M_BC1': all_chains[:, :, 0], # Mass of BC in Aitken mode (optimization parameter)
+                    'M_org1': all_chains[:, :, 1], # Mass of organics in Aitken mode (optimization parameter)
+                    'D1': all_chains[:, :, 2],  # Median diameter of Aitken mode (optimization parameter)
+                    'N1': all_chains[:, :, 3],  # Median number concentration of Aitken mode (optimization parameter)
+                    'D2': all_chains[:, :, 4],  # Median diameter of Accumulation mode (optimization parameter)
+                    'N2': all_chains[:, :, 5]  # Median number concentration of Accumulation mode (optimization parameter)
+                }
+            
 
             print(good_chains_idx)
 
@@ -134,6 +160,7 @@ if __name__ == '__main__':
     parser.add_argument('--chain_folder', type=str, required=True, help='folder where chains are stored for a particular experiment.')
     parser.add_argument('--output_file', type=str, required=True, help='Path to save the output CSV.')
     parser.add_argument('--sample_len', type=int, required=True, help='Number of samples at end of chains to use for stats.')
+    parser.add_argument('--model_v', type=str, required=True, help='Model version: m2, m3, m4, or m5. Determines number of parameters.')
     args = parser.parse_args()
 
-    main(args.chain_folder, args.output_file, args.sample_len)
+    main(args.chain_folder, args.output_file, args.sample_len, args.model_v)

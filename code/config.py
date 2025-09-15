@@ -14,17 +14,6 @@ import glob
 input_dir = '/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/input_data/' #input data
 output_dir = '/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/chains/' #print chains here
 
-base_fname = '40k_m3_orgs_only'  # Base filename for saving MCMC results
-
-restart_dir = 'm2_40k_logparams' #folder with existing chains to restart from
-
-MCMC_SETTINGS = {
-'max_iterations': 40000,  # Maximum number of MCMC iterations
-'burn_in': 15000,     # Number of initial phase iterations
-'chains': 5,         # Number of MCMC chains
-'restart': False,  # Whether to restart from existing chains
-}
-
 
 def load_data(idx):
     '''
@@ -123,7 +112,7 @@ def get_Extra(idx):
     return Extra
 
 
-def save_chain_results(samples, nchains, idx):
+def save_chain_results(base_fname, samples, nchains, idx):
     """
     Save the MCMC chain results to a CSV file.
 
@@ -133,11 +122,19 @@ def save_chain_results(samples, nchains, idx):
     """
     # Save the MCMC samples to a CSV file
     filename = f'mcmc_{base_fname}_{nchains}chains_{idx}.csv'
-    save_samples(os.path.join(output_dir, filename), samples[:,:,0], samples[:,:,1], samples[:,:,2], samples[:,:,3], samples[:,:,4])
+
+    # samples.shape should be (iterations, chains, parameters)
+    n_params = samples.shape[2]
+
+    # Create a list of 2D arrays, one for each parameter
+    param_slices = [samples[:, :, i] for i in range(n_params)]
+
+    # Pass them all to save_samples with unpacking
+    save_samples(os.path.join(output_dir, filename), *param_slices)
     print(f"Saved MCMC {idx} samples to {filename}")
 
 
-def get_initial_guesses(idx, posterior, prior, n_chains=MCMC_SETTINGS['chains'], max_attempts=1000):
+def get_initial_guesses(idx, posterior, prior, n_chains, max_attempts=1000):
     """
     Generate initial guesses for the MCMC run from a given prior
     and check that it gives a valid posterior.
@@ -185,7 +182,7 @@ def get_initial_samples(idx, posterior, base_values, num_samples, perturbation=0
 
 import numpy as np
 
-def get_initial_guesses_near_base(idx, posterior, prior, base_values, n_chains=MCMC_SETTINGS['chains'], 
+def get_initial_guesses_near_base(idx, posterior, prior, base_values, n_chains, 
                                   perturbation=0.2, max_attempts=100000):
     """
     Combo of above two functions to find initial positions for chains where base values don't automatically work.:
@@ -249,7 +246,7 @@ def get_initial_guesses_near_base(idx, posterior, prior, base_values, n_chains=M
 
     return samples
 
-def get_restart_samples(idx, n_chains):
+def get_restart_samples(restart_dir, idx, n_chains):
     """
     Starting values are the final positions of existing MCMC chains for a given window index.
     """

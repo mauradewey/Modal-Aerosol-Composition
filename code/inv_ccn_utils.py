@@ -219,7 +219,7 @@ def kappa_kohler_module_m3(Extra, NSD, pars_temp, T, SIGMA, rho_org, k_org):
             ccn[i] = ccn_x + N_act_bin
         except:
             ccn[i] = 0
-    return ccn, kappa, cal_kappa(Extra, pars_temp)[1]
+    return ccn, kappa, cal_kappa_m3(Extra, pars_temp, rho_org, k_org)[1]
 
 def cal_kappa(Extra, mass):
     """

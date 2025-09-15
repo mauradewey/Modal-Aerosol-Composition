@@ -6,23 +6,39 @@
 
 from dask import delayed, compute
 from dask.distributed import Client
-from run_mcmc import run_mcmc_for_CCNwindow
+from dask_jobqueue import SLURMCluster
+from code.run_mcmc_m4 import run_mcmc_for_CCNwindow
 import warnings
 import pickle
 
 warnings.simplefilter('always')  # Log all warnings
 
 def main():
-    # Initialize Dask client
-    client = Client(n_workers=32, threads_per_worker=1)
-    print('Initialized Dask cluster with 32 workers.')
+    cluster = SLURMCluster(       
+        account='naiss2025-1-5',      
+        cores=32,    
+        processes=32,
+        memory="96GiB",             
+        walltime='06:00:00',
+        job_script_prologue=[
+        'module load Miniforge/24.7.1-2-hpc1',
+        'conda activate mcmc_env',
+        'export PYTHONPATH=/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/code:$PYTHONPATH'
+    ] 
+    )
 
-    # Number of CCN windows:
-    #num_windows = 3000
-    with open('/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/results/not_convergedbelow3_m2_40k_logparams.pickle', 'rb') as f:
+    cluster.scale(jobs=12)  # adjust to number of nodes you want
+
+    # Connect Dask client
+    client = Client(cluster)
+    print("Dask client info: ", client)
+
+
+    # Get CCN windows to run:
+    with open('/proj/bolinc/users/x_maude/CCN_closure/Modal-Aerosol-Composition/results/missing_windows_summary_m4_org_and_sizeparams.pickle', 'rb') as f:
         missing_windows = pickle.load(f)
-   
-    tasks = [delayed(run_mcmc_for_CCNwindow)(i) for i in missing_windows[400:600]] 
+
+    tasks = [delayed(run_mcmc_for_CCNwindow)(i) for i in missing_windows]
 
     # Compute the results in parallel
     compute(*tasks, scheduler='distributed')
