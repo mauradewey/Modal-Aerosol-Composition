@@ -3,6 +3,12 @@
 
 # This script initializes a Dask client and runs the MCMC simulation for each CCN window in parallel.
 # The MCMC setting, model, likelihood, and prior classes are defined in the run_mcmc.py file.
+#
+# different optimizations can be run by changing the import statement for run_mcmc_for_CCNwindow:
+# run_mcmc.py - original model which optimizes size distribution parameters and the mass of organics in mode 1
+# run_mcmc_m3.py - optimizes only organic density and kappa
+# run_mcmc_m4.py - optimizes organic density, kappa, and size distribution parameters.
+# run_mcmc_m5.py - optimizes BC mass fraction, Organic mass fraction, and size distribution parameters.
 
 from dask import delayed, compute
 from dask.distributed import Client

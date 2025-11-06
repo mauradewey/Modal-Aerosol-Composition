@@ -8,12 +8,19 @@
 from models import CCNmodel_m2
 from likelihoods import KnownSigmaGaussianLogLikelihood
 from priors import joint_CauchyPrior
-from config import get_Extra, load_data, get_restart_samples, get_initial_guesses_near_base, save_chain_results, MCMC_SETTINGS
-import pints
-import numpy as np
+from config import get_Extra, load_data, get_restart_samples, get_initial_guesses_near_base, save_chain_results
 import pdb
 
 def run_mcmc_for_CCNwindow(idx):
+
+    base_fname = '40k_m2_logparams'  # Base filename for saving MCMC results
+
+    MCMC_SETTINGS = {
+    'max_iterations': 40000,  # Maximum number of MCMC iterations
+    'burn_in': 20000,     # Number of initial phase iterations
+    'chains': 5,         # Number of MCMC chains
+    'restart': False,  # Whether to restart from existing chains
+    }
 
     try:
         
@@ -59,7 +66,7 @@ def run_mcmc_for_CCNwindow(idx):
 
         # save chains:
         print(f"Saving chains for window {idx}.")
-        save_chain_results(samples, MCMC_SETTINGS['chains'], idx)
+        save_chain_results(base_fname, samples, MCMC_SETTINGS['chains'], idx)
 
 
     except Exception as e:
